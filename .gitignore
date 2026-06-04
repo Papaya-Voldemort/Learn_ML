@@ -1,0 +1,21 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Data & Model Storage (We don't want to upload gigabytes of raw arrays)
+dataset/
+ascii_cam_model/
+
+# macOS system files
+.DS_Store
+
+# Learning Scripts
+learning/
