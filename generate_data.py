@@ -7,17 +7,24 @@ from PIL import Image, ImageDraw, ImageFont
 # 1. SETUP CONSTANTS
 PATCH_WIDTH = 8
 PATCH_HEIGHT = 16
-SAMPLES_PER_CHAR = 500  # 13 characters * 500 variations = 6,500 total image patches
+SAMPLES_PER_CHAR = 500  
 
 # A structurally balanced set of characters ordered from lowest to highest visual density
-ASCII_CHARS = [" ", ".", "-", "=", "+", "*", "x", "%", "#", "@", "/", "\\", "|"]
+try:
+    import json
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "config.json")
+    with open(config_path, "r", encoding="utf-8") as f:
+        ASCII_CHARS = json.load(f)["ASCII_CHARS"]
+except Exception as e:
+    print(f"⚠️ Could not load config.json ({e}), using default fallback.")
+    ASCII_CHARS = [" ", ".", "-", "=", "+", "*", "x", "%", "#", "@", "/", "\\", "|"]
 
-DATA_DIR = "dataset"
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def create_base_char_image(char, font_size=14):
     """Renders a single crisp, white ASCII character on a black canvas."""
-    # Create a canvas twice as big so we can rotate it without clipping edges
     img = Image.new("L", (PATCH_WIDTH * 2, PATCH_HEIGHT * 2), color=0)
     draw = ImageDraw.Draw(img)
     
@@ -39,36 +46,35 @@ def create_base_char_image(char, font_size=14):
     return img
 
 def apply_augmentations(pil_img):
-    """Distorts the clean character image to teach the AI real-world visual texture."""
     img_np = np.array(pil_img)
     
-    # 1. Random Rotation (Simulates crooked camera angles or slanted lines)
+    canvas_h, canvas_w = img_np.shape
     angle = random.uniform(-10, 10)
-    matrix = cv2.getRotationMatrix2D((PATCH_WIDTH, PATCH_HEIGHT), angle, 1.0)
-    img_np = cv2.warpAffine(img_np, matrix, (PATCH_WIDTH * 2, PATCH_HEIGHT * 2))
+    matrix = cv2.getRotationMatrix2D((canvas_w // 2, canvas_h // 2), angle, 1.0)
+    img_np = cv2.warpAffine(img_np, matrix, (canvas_w, canvas_h))
     
-    # Crop down from the double-sized center canvas to our exact target size (16x8)
-    start_x = PATCH_WIDTH // 2
-    start_y = PATCH_HEIGHT // 2
+    start_x = (canvas_w - PATCH_WIDTH) // 2
+    start_y = (canvas_h - PATCH_HEIGHT) // 2
     img_np = img_np[start_y:start_y+PATCH_HEIGHT, start_x:start_x+PATCH_WIDTH]
+        
+    if random.random() > 0.3:
+        grid_y, grid_x = np.mgrid[0:PATCH_HEIGHT, 0:PATCH_WIDTH]
+        gradient = (grid_y * random.uniform(-2, 2) + grid_x * random.uniform(-2, 2)).astype(np.uint8)
+        img_np = cv2.addWeighted(img_np, 0.8, gradient, 0.2, 0)
     
-    # 2. Random Contrast & Brightness adjustments
-    alpha = random.uniform(0.5, 1.5)  # Contrast multiplier
-    beta = random.randint(-30, 30)     # Brightness offset
+    alpha = random.uniform(0.8, 1.2)
+    beta = random.randint(-20, 20)
     img_np = cv2.convertScaleAbs(img_np, alpha=alpha, beta=beta)
     
-    # 3. Random Blur (Teaches the model to recognize shapes even out of focus)
     if random.random() > 0.5:
         kernel_size = random.choice([3, 5])
         img_np = cv2.GaussianBlur(img_np, (kernel_size, kernel_size), 0)
         
-    # 4. Add Random Digital Noise
     if random.random() > 0.5:
-        noise = np.random.normal(0, random.uniform(5, 15), img_np.shape).astype(np.float32)
+        noise = np.random.normal(0, random.uniform(3, 12), img_np.shape).astype(np.float32)
         img_np = np.clip(img_np.astype(np.float32) + noise, 0, 255).astype(np.uint8)
         
     return img_np
-
 print("🚀 Launching synthetic dataset factory...")
 
 X_data = []
