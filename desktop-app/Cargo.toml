@@ -2,6 +2,7 @@
 name = "ascii-cam-filter"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 
 # TUTOR HINT: Hey Eli! Here is the Cargo configuration template for your Rust GUI app.
 # This compiles a native app that captures the webcam and processes it into ASCII in real-time.

@@ -12,23 +12,23 @@ def download_coco_images(target_dir="images", num_people=1000, num_objects=200):
 
     total_target = num_people + num_objects
 
-    # Check existing images
+    # check existing images
     existing_images = [f for f in os.listdir(target_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
     if len(existing_images) >= total_target:
-        print(f"✅ Found {len(existing_images)} existing images in '{target_dir}'. Skipping download pipeline.")
+        print(f"Found {len(existing_images)} existing images in '{target_dir}'. Skipping download pipeline.")
         return
 
-    print("🔍 Fetching COCO annotations to select images...")
+    print("Fetching COCO annotations to select images...")
     json_url = "https://huggingface.co/datasets/merve/coco/resolve/main/annotations/instances_val2017.json"
     json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instances_val2017.json")
 
     try:
         if not os.path.exists(json_path):
-            print(f"📥 Downloading annotation metadata ({json_url})...")
+            print(f"Downloading annotation metadata ({json_url})...")
             urllib.request.urlretrieve(json_url, json_path)
-            print("📦 Metadata download complete.")
+            print("Metadata download complete.")
 
-        print("📖 Reading and parsing annotations...")
+        print("Reading and parsing annotations...")
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
@@ -56,7 +56,7 @@ def download_coco_images(target_dir="images", num_people=1000, num_objects=200):
         object_only_img_ids = []
 
         import random
-        # Seed for reproducibility of selection
+        # seed random selection
         random.seed(42)
 
         all_annotated_ids = list(img_to_cats.keys())
@@ -75,8 +75,8 @@ def download_coco_images(target_dir="images", num_people=1000, num_objects=200):
         selected_objects = object_only_img_ids[:num_objects]
         selected_ids = selected_people + selected_objects
 
-        print(f"🎯 Selected {len(selected_people)} 'person' images and {len(selected_objects)} 'object-only' images.")
-        print(f"📥 Downloading {len(selected_ids)} images concurrently...")
+        print(f"Selected {len(selected_people)} 'person' images and {len(selected_objects)} 'object-only' images.")
+        print(f"Downloading {len(selected_ids)} images concurrently...")
 
         def download_single_image(img_id):
             img_meta = images_dict[img_id]
@@ -86,23 +86,23 @@ def download_coco_images(target_dir="images", num_people=1000, num_objects=200):
             filename = img_meta.get('file_name')
             dest = os.path.join(target_dir, filename)
             
-            # Check if this image already exists to avoid redundant download
+            # check if image exists
             if os.path.exists(dest):
                 return
 
             try:
                 urllib.request.urlretrieve(url, dest)
             except Exception as e:
-                print(f"⚠️ Failed to download {url}: {e}")
+                print(f"Failed to download {url}: {e}")
 
-        # Concurrent downloading using 16 threads
+        # download with threads
         with ThreadPoolExecutor(max_workers=16) as executor:
             executor.map(download_single_image, selected_ids)
 
-        print(f"🎉 Download sequence finished. Images saved to '{target_dir}'.")
+        print(f"Download sequence finished. Images saved to '{target_dir}'.")
 
     finally:
-        # Clean up annotation json file
+        # remove annotation metadata
         if os.path.exists(json_path):
             os.remove(json_path)
 

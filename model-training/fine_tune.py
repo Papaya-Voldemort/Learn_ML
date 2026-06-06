@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import sys
 import argparse
@@ -15,7 +14,6 @@ from keras import layers, models
 import numpy as np
 from PIL import Image
 
-# ── Constants ──────────────────────────────────────────────────────────
 PATCH_W = 8
 PATCH_H = 16
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,9 +23,8 @@ with open(os.path.join(SCRIPT_DIR, "config.json"), "r", encoding="utf-8") as f:
 
 CHAR_TO_IDX = {c: i for i, c in enumerate(ASCII_CHARS)}
 
-# ── jp2a Pipeline ──────────────────────────────────────────────────────
 def convert_with_jp2a(grayscale_img, cols):
-    """Pipes a pre-converted grayscale PIL image to jp2a."""
+    # convert image to ascii text
     buf = io.BytesIO()
     grayscale_img.save(buf, format="JPEG", quality=95)
     chars_ramp = "".join(ASCII_CHARS)
@@ -42,14 +39,10 @@ def convert_with_jp2a(grayscale_img, cols):
     return result.stdout.decode("utf-8")
 
 def process_image(image_path, cols, max_per_char=30):
-    """
-    Generates balanced patches. Caps the number of patches per character 
-    class per image to prevent memory overload and class imbalance.
-    """
-    # 1. Convert to Grayscale once (so jp2a and patch extractor see the same lighting)
+    # extract and group patches from image
     img = Image.open(image_path).convert("L")
     
-    # 2. Get Gold Standard labels
+    # get image labels
     ascii_text = convert_with_jp2a(img, cols)
     lines = [line for line in ascii_text.rstrip("\n").split("\n") if line]
     if not lines:
@@ -59,13 +52,11 @@ def process_image(image_path, cols, max_per_char=30):
     actual_cols = max(len(line) for line in lines)
     lines = [line.ljust(actual_cols) for line in lines]
 
-    # 3. Resize base image to match grid
     target_w = actual_cols * PATCH_W
     target_h = rows * PATCH_H
     img = img.resize((target_w, target_h), Image.LANCZOS)
     img_np = np.array(img, dtype=np.float32) / 255.0
 
-    # 4. Group patches by character (Smart Sampling)
     grouped_patches = defaultdict(list)
 
     for r in range(rows):
@@ -81,12 +72,11 @@ def process_image(image_path, cols, max_per_char=30):
             if patch.shape == (PATCH_H, PATCH_W):
                 grouped_patches[CHAR_TO_IDX[char]].append(patch)
 
-    # 5. Cap and merge
     final_patches = []
     final_labels = []
     
     for char_idx, patch_list in grouped_patches.items():
-        # Shuffle and cap the amount of patches for this specific character
+        # cap patches per character class
         np.random.shuffle(patch_list)
         sampled = patch_list[:max_per_char]
         
@@ -95,14 +85,14 @@ def process_image(image_path, cols, max_per_char=30):
 
     return final_patches, final_labels
 
-# ── Model Architecture ─────────────────────────────────────────────────
 def load_or_build_model():
+    # load or build model architecture
     model_path = os.path.join(os.path.dirname(SCRIPT_DIR), "ascii_cam_model", "model.keras")
     if os.path.exists(model_path):
-        print(f"✅ Loaded pre-trained model")
+        print(f"Loaded pre-trained model")
         return keras.models.load_model(model_path)
 
-    print("⚠️ Rebuilding from scratch.")
+    print("Rebuilding from scratch :O")
     num_classes = len(ASCII_CHARS)
     return models.Sequential([
         layers.Input(shape=(PATCH_H, PATCH_W, 1)),
@@ -117,7 +107,6 @@ def load_or_build_model():
         layers.Dense(num_classes, activation="softmax")
     ])
 
-# ── Main ───────────────────────────────────────────────────────────────
 def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("image_folder")
@@ -135,15 +124,15 @@ def main(args=None):
         image_paths.extend(glob.glob(os.path.join(args.image_folder, ext.upper())))
     
     if not image_paths:
-        print("❌ No images found.")
+        print("No images found...")
         sys.exit(1)
 
-    print(f"📷 Processing {len(image_paths)} images with Smart Sampling...")
+    print(f"Processing {len(image_paths)} images with Smart Sampling...")
     all_patches, all_labels = [], []
 
+    # process all dataset images
     for i, path in enumerate(image_paths):
         try:
-            # We cap the patches per char per image to maintain variety & low RAM
             p, l = process_image(path, args.cols, max_per_char=args.max_per_char)
             all_patches.extend(p)
             all_labels.extend(l)
@@ -154,7 +143,7 @@ def main(args=None):
 
     X_real = np.expand_dims(np.array(all_patches, dtype=np.float32), axis=-1)
     y_real = np.array(all_labels, dtype=np.int32)
-    print(f"\n📊 Extracted {len(X_real):,} highly-balanced real-world patches.")
+    print(f"\nExtracted {len(X_real):,} highly-balanced real-world patches.")
 
     if args.mix_synthetic > 0:
         try:
@@ -166,17 +155,16 @@ def main(args=None):
             
             X_real = np.concatenate([X_real, X_synth[synth_idx]])
             y_real = np.concatenate([y_real, y_synth[synth_idx]])
-            print(f"🔀 Added {n_synth:,} structural synthetic patches.")
+            print(f"Added {n_synth:,} structural synthetic patches.")
         except Exception as e:
-            print(f"⚠️ Could not load synthetic data to mix: {e}")
+            print(f"Could not load synthetic data to mix: {e}")
 
-    # Shuffle everything
+    # shuffle and split dataset
     indices = np.arange(len(X_real))
     np.random.shuffle(indices)
     X_train, X_val = X_real[indices][:int(len(X_real)*0.9)], X_real[indices][int(len(X_real)*0.9):]
     y_train, y_val = y_real[indices][:int(len(X_real)*0.9)], y_real[indices][int(len(X_real)*0.9):]
 
-    # Compute class weights for any remaining imbalance
     classes = np.unique(y_train)
     total_samples = len(y_train)
     n_classes = len(classes)
@@ -204,7 +192,7 @@ def main(args=None):
     model_dir = os.path.join(os.path.dirname(SCRIPT_DIR), "ascii_cam_model")
     model.save(os.path.join(model_dir, "model.keras"))
     model.export(os.path.join(model_dir, "model.onnx"), format="onnx")
-    print("✅ Model updated and saved!")
+    print("Model updated and saved :)")
 
 if __name__ == "__main__":
     main()

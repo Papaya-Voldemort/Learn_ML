@@ -45,3 +45,9 @@ cd desktop-app
 cargo run --release
 ```
 See the [`desktop-app/README.md`](file:///Users/elinelson/Documents/Development/Learn_ML/desktop-app/README.md) for instructions on routing the GUI to Zoom/Teams using OBS Studio!
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](file:///Users/elinelson/Documents/Development/Learn_ML/LICENSE) file for details.

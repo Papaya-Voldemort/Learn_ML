@@ -3,8 +3,10 @@ name = "learn-ml"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
+    "huggingface-hub>=1.18.0",
     "keras>=3.14.1",
     "onnx>=1.21.0",
     "onnxruntime>=1.26.0",
@@ -12,4 +14,8 @@ dependencies = [
     "pillow>=12.2.0",
     "torch>=2.12.0",
     "torchvision>=0.27.0",
+    "huggingface_hub>=1.18.0",
 ]
+
+[tool.pyright]
+extraPaths = ["model-training"]

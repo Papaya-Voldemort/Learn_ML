@@ -6,26 +6,27 @@ from keras import layers, models
 import numpy as np
 
 def main():
-    # 1. LOAD THE DATA
+    # load data
     script_dir = os.path.dirname(os.path.abspath(__file__))
     X = np.load(os.path.join(script_dir, "dataset", "X_data.npy"))
     y = np.load(os.path.join(script_dir, "dataset", "y_data.npy"))
     
-    # Create an array of index numbers and shuffle them randomly
+    # shuffle indices
     indices = np.arange(X.shape[0])
     np.random.shuffle(indices)
     
-    # Reorder both features and labels using the shuffled index map
+    # reorder features and labels
     X = X[indices]
     y = y[indices]
     
-    # Split into 80% Training and 20% Testing so we can verify true accuracy
+    # split train/val
     split_idx = int(len(X) * 0.8)
     X_train, X_val = X[:split_idx], X[split_idx:]
     y_train, y_val = y[:split_idx], y[split_idx:]
     
     num_classes = len(np.unique(y))
     
+    # build model architecture
     model = models.Sequential([
         layers.Input(shape=(16, 8, 1)),
         
@@ -56,6 +57,8 @@ def main():
         batch_size=64
     )
     
+    # save trained models
+    print("\nModel saved :)")
     model_dir = os.path.join(os.path.dirname(script_dir), "ascii_cam_model")
     os.makedirs(model_dir, exist_ok=True)
     model.save(os.path.join(model_dir, "model.keras"))
