@@ -12,7 +12,7 @@ __pycache__/
 
 # Data & Model Storage (We don't want to upload gigabytes of raw arrays)
 dataset/
-ascii_cam_model/
+images/
 
 # macOS system files
 .DS_Store

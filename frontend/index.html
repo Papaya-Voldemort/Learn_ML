@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live ASCII Art Camera — Machine Learning Pipeline</title>
+  <meta name="description" content="A real-time image-to-ASCII converter powered by an ONNX neural network running completely in the browser.">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="index.css">
+  
+  <!-- ONNX Runtime Web -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+</head>
+<body class="theme-cyberpunk">
+  <div class="glow-bg"></div>
+  
+  <div class="app-container">
+    <header class="app-header">
+      <div class="brand">
+        <span class="logo-icon">✦</span>
+        <h1>NeuroASCII <span class="badge">Live ML Pipeline</span></h1>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot pulse" id="status-dot"></span>
+        <span class="status-text" id="status-text">Initializing Pipeline...</span>
+      </div>
+    </header>
+
+    <main class="app-grid">
+      <!-- Left Column: Controls & Input Preview -->
+      <section class="panel-left">
+        <div class="glass-card control-card">
+          <h2>Controls & Parameters</h2>
+          
+          <div class="control-group">
+            <label for="cols-select">
+              Resolution (Columns)
+              <span class="val-badge" id="cols-val">100</span>
+            </label>
+            <div class="range-container">
+              <input type="range" id="cols-select" min="40" max="160" step="10" value="100">
+              <div class="range-labels">
+                <span>Fast</span>
+                <span>Balanced</span>
+                <span>Detail</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="control-grid">
+            <div class="control-group">
+              <label for="theme-select">Color Theme</label>
+              <select id="theme-select">
+                <option value="theme-cyberpunk">Cyberpunk Neon</option>
+                <option value="theme-matrix">Matrix Green</option>
+                <option value="theme-amber">Classic Amber</option>
+                <option value="theme-vibrant">Vibrant Ocean</option>
+                <option value="theme-mono">Retro Mono</option>
+              </select>
+            </div>
+            
+            <div class="control-group">
+              <label for="zoom-slider">Font Size</label>
+              <input type="range" id="zoom-slider" min="4" max="14" step="0.5" value="7.5">
+            </div>
+          </div>
+          
+          <div class="toggle-grid">
+            <label class="toggle-switch" id="label-invert">
+              <input type="checkbox" id="invert-checkbox">
+              <span class="switch-slider"></span>
+              <span class="switch-label">Invert Characters</span>
+            </label>
+            
+            <label class="toggle-switch" id="label-mirror">
+              <input type="checkbox" id="mirror-checkbox" checked>
+              <span class="switch-slider"></span>
+              <span class="switch-label">Mirror Stream</span>
+            </label>
+          </div>
+          
+          <div class="action-buttons">
+            <button id="play-pause-btn" class="btn btn-primary" disabled>
+              <span class="btn-icon">⏸</span> <span class="btn-text">Pause Stream</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="glass-card camera-card">
+          <h2>Webcam Stream</h2>
+          <div class="video-container">
+            <video id="webcam-video" autoplay playsinline muted></video>
+            <div class="video-overlay" id="video-overlay">
+              <div class="loader"></div>
+              <p>Camera Stream Offline</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Right Column: ASCII Art Output -->
+      <section class="panel-right">
+        <div class="glass-card ascii-card">
+          <div class="ascii-card-header">
+            <h2>Neural ASCII Output</h2>
+            <button id="copy-btn" class="btn btn-secondary" title="Copy ASCII Art">
+              <span>📋</span> Copy
+            </button>
+          </div>
+          <div class="ascii-viewport">
+            <pre id="ascii-output">Loading ascii converter...</pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Metrics Footer -->
+    <footer class="app-footer glass-card">
+      <div class="metric">
+        <span class="metric-label">FPS</span>
+        <span class="metric-value" id="fps-value">--</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-label">Inference</span>
+        <span class="metric-value" id="inference-time">-- ms</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-label">Preprocessing</span>
+        <span class="metric-value" id="preprocess-time">-- ms</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-label">Total Latency</span>
+        <span class="metric-value" id="total-time">-- ms</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-label">Grid Size</span>
+        <span class="metric-value" id="resolution-value">--</span>
+      </div>
+    </footer>
+  </div>
+  
+  <!-- Hidden Canvas for preprocessing -->
+  <canvas id="preprocess-canvas" style="display: none;"></canvas>
+  
+  <!-- Main Script -->
+  <script src="app.js"></script>
+</body>
+</html>
