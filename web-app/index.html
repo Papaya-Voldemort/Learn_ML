@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="index.css">
   
   <!-- ONNX Runtime Web -->
-  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/ort.all.min.js"></script>
 </head>
 <body class="theme-cyberpunk">
   <div class="glow-bg"></div>
@@ -52,6 +52,15 @@
                 <span>Detail</span>
               </div>
             </div>
+          </div>
+          <div class="control-group">
+            <label for="backend-select">Execution Backend</label>
+            <select id="backend-select">
+              <option value="wasm" selected>WASM (Multi-threaded CPU — Recommended)</option>
+              <option value="webgpu">WebGPU (Modern GPU)</option>
+              <option value="webgl">WebGL (Legacy GPU)</option>
+              <option value="webnn">WebNN (macOS NPU / CoreML)</option>
+            </select>
           </div>
           
           <div class="control-grid">
@@ -150,8 +159,8 @@
     </footer>
   </div>
   
-  <!-- Hidden Canvas for preprocessing -->
-  <canvas id="preprocess-canvas" style="display: none;"></canvas>
+  <!-- Hidden Canvas for preprocessing (kept in DOM with layout for hardware acceleration) -->
+  <canvas id="preprocess-canvas" style="position: absolute; left: -9999px; top: -9999px; pointer-events: none; opacity: 0;"></canvas>
   
   <!-- Main Script -->
   <script src="app.js"></script>

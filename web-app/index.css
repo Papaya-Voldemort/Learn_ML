@@ -558,7 +558,6 @@ select option {
   color: var(--ascii-color);
   white-space: pre;
   user-select: text;
-  text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
   transition: color var(--transition-normal);
 }
 

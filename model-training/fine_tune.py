@@ -97,7 +97,7 @@ def process_image(image_path, cols, max_per_char=30):
 
 # ── Model Architecture ─────────────────────────────────────────────────
 def load_or_build_model():
-    model_path = os.path.join(SCRIPT_DIR, "ascii_cam_model", "model.keras")
+    model_path = os.path.join(os.path.dirname(SCRIPT_DIR), "ascii_cam_model", "model.keras")
     if os.path.exists(model_path):
         print(f"✅ Loaded pre-trained model")
         return keras.models.load_model(model_path)
@@ -161,13 +161,14 @@ def main(args=None):
             X_synth = np.load(os.path.join(SCRIPT_DIR, "dataset", "X_data.npy"))
             y_synth = np.load(os.path.join(SCRIPT_DIR, "dataset", "y_data.npy"))
             n_synth = int(len(X_real) * args.mix_synthetic)
-            synth_idx = np.random.choice(len(X_synth), n_synth, replace=False)
+            replace = n_synth > len(X_synth)
+            synth_idx = np.random.choice(len(X_synth), n_synth, replace=replace)
             
             X_real = np.concatenate([X_real, X_synth[synth_idx]])
             y_real = np.concatenate([y_real, y_synth[synth_idx]])
             print(f"🔀 Added {n_synth:,} structural synthetic patches.")
-        except:
-            print("⚠️ Could not load synthetic data to mix.")
+        except Exception as e:
+            print(f"⚠️ Could not load synthetic data to mix: {e}")
 
     # Shuffle everything
     indices = np.arange(len(X_real))
@@ -200,7 +201,7 @@ def main(args=None):
         class_weight=class_weight_dict
     )
 
-    model_dir = os.path.join(SCRIPT_DIR, "ascii_cam_model")
+    model_dir = os.path.join(os.path.dirname(SCRIPT_DIR), "ascii_cam_model")
     model.save(os.path.join(model_dir, "model.keras"))
     model.export(os.path.join(model_dir, "model.onnx"), format="onnx")
     print("✅ Model updated and saved!")

@@ -68,25 +68,30 @@ def apply_augmentations(pil_img, is_solid=False):
         
     return img_np
 
-def main():
+def main(samples_per_char=SAMPLES_PER_CHAR, ascii_chars=None, data_dir=None):
+    if ascii_chars is None:
+        ascii_chars = ASCII_CHARS
+    if data_dir is None:
+        data_dir = DATA_DIR
+
     print("🚀 Launching synthetic dataset factory...")
     
     X_data = []
     y_data = []
     
-    for char_idx, char in enumerate(ASCII_CHARS):
-        print(f"Manufacturing variations for: '{char}' ({char_idx + 1}/{len(ASCII_CHARS)})")
+    for char_idx, char in enumerate(ascii_chars):
+        print(f"Manufacturing variations for: '{char}' ({char_idx + 1}/{len(ascii_chars)})")
         
         # Special handling for spaces to include purely solid gray/black/white patches
         if char == " ":
-            for _ in range(SAMPLES_PER_CHAR):
+            for _ in range(samples_per_char):
                 base = Image.new("L", (PATCH_WIDTH * 2, PATCH_HEIGHT * 2), color=random.randint(0, 255))
                 aug_patch = apply_augmentations(base, is_solid=True)
                 X_data.append(aug_patch.astype(np.float32) / 255.0)
                 y_data.append(char_idx)
         else:
             base_img = create_base_char_image(char)
-            for _ in range(SAMPLES_PER_CHAR):
+            for _ in range(samples_per_char):
                 aug_patch = apply_augmentations(base_img)
                 X_data.append(aug_patch.astype(np.float32) / 255.0)
                 y_data.append(char_idx)
@@ -94,8 +99,8 @@ def main():
     X_data = np.expand_dims(np.array(X_data, dtype=np.float32), axis=-1)
     y_data = np.array(y_data, dtype=np.int32)
     
-    np.save(os.path.join(DATA_DIR, "X_data.npy"), X_data)
-    np.save(os.path.join(DATA_DIR, "y_data.npy"), y_data)
+    np.save(os.path.join(data_dir, "X_data.npy"), X_data)
+    np.save(os.path.join(data_dir, "y_data.npy"), y_data)
     
     print(f"\n✅ Pipeline complete! Processed {len(X_data)} training patches.")
 

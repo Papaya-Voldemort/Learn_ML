@@ -117,7 +117,7 @@ def main():
     train_model.main()
 
     print("\n=== Phase 4: Fine-tuning Model with COCO Real Images ===")
-    fine_tune.main(['images', '--epochs', '3', '--max-per-char', '5'])
+    fine_tune.main(['images', '--epochs', '8', '--max-per-char', '5'])
 
     print("\n🚀 Pipeline finished successfully! Model is fully trained and fine-tuned.")
 

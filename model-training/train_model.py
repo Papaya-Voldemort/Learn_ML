@@ -56,7 +56,7 @@ def main():
         batch_size=64
     )
     
-    model_dir = os.path.join(script_dir, "ascii_cam_model")
+    model_dir = os.path.join(os.path.dirname(script_dir), "ascii_cam_model")
     os.makedirs(model_dir, exist_ok=True)
     model.save(os.path.join(model_dir, "model.keras"))
     model.export(os.path.join(model_dir, "model.onnx"), format="onnx")

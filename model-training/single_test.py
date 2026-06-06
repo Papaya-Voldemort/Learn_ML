@@ -21,7 +21,7 @@ from PIL import Image
 
 # Setup default paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_MODEL_DIR = os.path.join(SCRIPT_DIR, "ascii_cam_model")
+DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "ascii_cam_model")
 DEFAULT_CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
 
 def load_ascii_chars(config_path):

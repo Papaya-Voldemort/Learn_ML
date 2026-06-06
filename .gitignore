@@ -3,20 +3,25 @@
 venv/
 env/
 
-# Python Cache
+# Python Cache & Build Artifacts
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
 
-# Data & Model Storage (We don't want to upload gigabytes of raw arrays)
+# Rust Target Build Artifacts
+target/
+**/*.rs.bk
+
+# Data Storage (large datasets & annotations ignored)
 dataset/
 images/
+instances_val2017.json
 
 # macOS system files
 .DS_Store
 
-# Learning Scripts
+# Learning & Tests directories
 learning/
 tests/

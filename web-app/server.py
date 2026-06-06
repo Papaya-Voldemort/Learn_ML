@@ -23,13 +23,13 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=PROJECT_ROOT, **kwargs)
 
     def do_GET(self):
-        # Route standard paths at root to the frontend folder
+        # Route standard paths at root to the web-app folder
         if self.path == "/" or self.path == "/index.html":
-            self.path = "/frontend/index.html"
+            self.path = "/web-app/index.html"
         elif self.path == "/index.css":
-            self.path = "/frontend/index.css"
+            self.path = "/web-app/index.css"
         elif self.path == "/app.js":
-            self.path = "/frontend/app.js"
+            self.path = "/web-app/app.js"
         
         return super().do_GET()
 
@@ -60,7 +60,7 @@ def main():
             print("==================================================================")
             print(f" 🔗 URL:       http://localhost:{PORT}/")
             print(f" 📂 Root Dir:  {PROJECT_ROOT}")
-            print(f" 🧪 Frontend:  {os.path.join(PROJECT_ROOT, 'frontend')}")
+            print(f" 🧪 Web App:   {os.path.join(PROJECT_ROOT, 'web-app')}")
             print(f" 📦 Model:     {os.path.join(PROJECT_ROOT, 'ascii_cam_model')}")
             print("==================================================================")
             print("Press Ctrl+C to stop the server.")

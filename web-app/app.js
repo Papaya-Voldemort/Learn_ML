@@ -1,7 +1,10 @@
 // app.js — Live Webcam-to-ASCII Pipeline via ONNX Runtime Web
 
-// Configure ONNX WebAssembly CDN paths
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+// Configure ONNX WebAssembly CDN paths and performance parameters for optimal fallback
+ort.env.logLevel = 'error';
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/';
+ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 4);
+ort.env.wasm.simd = true;
 
 // Dom Elements
 const video = document.getElementById('webcam-video');
@@ -15,6 +18,7 @@ const statusText = document.getElementById('status-text');
 
 const colsSelect = document.getElementById('cols-select');
 const colsVal = document.getElementById('cols-val');
+const backendSelect = document.getElementById('backend-select');
 const themeSelect = document.getElementById('theme-select');
 const zoomSlider = document.getElementById('zoom-slider');
 const invertCheckbox = document.getElementById('invert-checkbox');
@@ -36,6 +40,7 @@ let asciiChars = [];
 let isStreaming = false;
 let isModelLoaded = false;
 let animationFrameId = null;
+let initialLoadDone = false;
 
 // Stats Tracking
 let lastFrameTime = performance.now();
@@ -45,7 +50,7 @@ let fpsIntervalStart = performance.now();
 // 1. Initial configuration and setup
 async function init() {
   updateStatus('loading', 'Loading configuration & model...');
-  
+
   // Load config.json
   try {
     const response = await fetch('/config.json');
@@ -57,29 +62,88 @@ async function init() {
     console.warn('⚠️ Could not load config.json, using fallback ramp:', e);
     asciiCharsDefault = [" ", ".", ",", "-", "~", ":", "i", "r", "s", "t", "l", "C", "O", "Z", "w", "m", "#", "8", "%", "@"];
   }
-  
+
   updateCharRamp();
-  
+
   // Initialize zoom slider font style
   updateZoom(zoomSlider.value);
-  
-  // Load ONNX Model
+
+  // Load ONNX Model using the selected backend
+  const initialBackend = backendSelect ? backendSelect.value : 'wasm';
+  await loadModel(initialBackend);
+}
+
+// 1.1 Model Loader with Dynamic Backend Support
+async function loadModel(backend) {
+  isModelLoaded = false;
+  updateStatus('loading', `Loading model on ${backend.toUpperCase()}...`);
+
+  // Temporarily halt the active loop if streaming
+  const wasStreaming = isStreaming;
+  if (isStreaming) {
+    isStreaming = false;
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    stopCamera();
+  }
+
+  let activeProvider = backend;
+
   try {
     const modelPath = '/ascii_cam_model/model.onnx';
-    console.log(`🧠 Loading ONNX model from: ${modelPath}`);
+    console.log(`🧠 Loading ONNX model from: ${modelPath} using requested backend: ${backend}`);
     
-    // Create ONNX Runtime Session using WebGL/WebGPU if available, fallback to WASM
-    // We prefer CPU (wasm) because batch inference is light, and WASM has highest compatibility.
-    ortSession = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm']
-    });
+    // We try the selected backend exclusively. If it fails, we fall back to wasm.
+    try {
+      ortSession = await ort.InferenceSession.create(modelPath, {
+        executionProviders: [backend],
+        logSeverityLevel: 3
+      });
+      activeProvider = backend;
+    } catch (backendError) {
+      if (backend !== 'wasm') {
+        console.warn(`⚠️ ${backend.toUpperCase()} initialization failed. Falling back to WASM:`, backendError);
+        ortSession = await ort.InferenceSession.create(modelPath, {
+          executionProviders: ['wasm'],
+          logSeverityLevel: 3
+        });
+        activeProvider = 'wasm';
+      } else {
+        throw backendError;
+      }
+    }
     
     isModelLoaded = true;
-    console.log('🚀 ONNX Session created successfully!');
-    updateStatus('ready', 'Model Ready. Requesting camera...');
     
-    // Start Webcam
-    await startCamera();
+    // Confirm the active provider
+    let confirmedProvider = activeProvider;
+    if (ortSession.providers && ortSession.providers.length > 0) {
+      confirmedProvider = ortSession.providers[0];
+    } else if (ortSession.handler?.provider) {
+      confirmedProvider = ortSession.handler.provider;
+    }
+    
+    console.log(`🚀 ONNX Session initialized using: ${confirmedProvider}`);
+    updateStatus('ready', `Model ready on ${confirmedProvider.toUpperCase()}.`);
+    
+    // Sync selector UI in case of fallback
+    if (backendSelect) {
+      backendSelect.value = confirmedProvider;
+    }
+
+    if (wasStreaming) {
+      isStreaming = true;
+      await startCamera();
+    } else if (initialLoadDone) {
+      // If we manually switched backends, resume camera automatically
+      isStreaming = true;
+      await startCamera();
+    } else {
+      initialLoadDone = true;
+      await startCamera();
+    }
   } catch (err) {
     console.error('❌ Error initializing pipeline:', err);
     updateStatus('error', `Pipeline load failed: ${err.message}`);
@@ -97,10 +161,10 @@ async function startCamera() {
         facingMode: 'user'
       }
     };
-    
+
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = stream;
-    
+
     // Wait for metadata to load to get dimensions
     video.onloadedmetadata = () => {
       video.play();
@@ -109,9 +173,9 @@ async function startCamera() {
       playPauseBtn.disabled = false;
       playPauseBtn.querySelector('.btn-text').textContent = 'Pause Stream';
       playPauseBtn.querySelector('.btn-icon').textContent = '⏸';
-      
+
       updateStatus('active', 'Camera Connected — Live Stream Active');
-      
+
       // Start processing loop
       lastFrameTime = performance.now();
       frameCount = 0;
@@ -140,32 +204,33 @@ function stopCamera() {
 // 3. Core Preprocessing & Inference Loop
 async function processFrame() {
   if (!isStreaming || !isModelLoaded) return;
-  
+
   const startTotal = performance.now();
-  
+
   // Dimensions
   const cols = parseInt(colsSelect.value);
   const videoWidth = video.videoWidth || 640;
   const videoHeight = video.videoHeight || 480;
   const aspect = videoWidth / videoHeight;
-  
+
   // Character cell is 8px wide by 16px high (aspect ratio 1:2)
   // Compute rows dynamically to preserve physical dimensions:
   const rows = Math.max(1, Math.round((cols * 0.5) / aspect));
   resolutionVal.textContent = `${cols} × ${rows}`;
-  
+
   const targetW = cols * 8;
   const targetH = rows * 16;
-  
-  // Set canvas size for block processing
-  canvas.width = targetW;
-  canvas.height = targetH;
-  
+
+  // Set canvas size only if dimensions changed to prevent browser context resets and reflows
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW;
+    canvas.height = targetH;
+  }
+
   // A. PREPROCESSING
+  // A. OPTIMIZED PREPROCESSING
   const startPreprocess = performance.now();
-  
-  // Draw current frame scaled to exact patch resolution
-  // Mirror the drawing if mirrorCheckbox is checked to match the preview
+
   if (mirrorCheckbox.checked) {
     ctx.save();
     ctx.translate(targetW, 0);
@@ -175,66 +240,61 @@ async function processFrame() {
   } else {
     ctx.drawImage(video, 0, 0, targetW, targetH);
   }
-  
-  // Fetch pixel buffer
+
   const imgData = ctx.getImageData(0, 0, targetW, targetH).data;
-  
-  // Prepare tensor data: shape (batchSize, height:16, width:8, channels:1)
   const batchSize = rows * cols;
-  const inputBuffer = new Float32Array(batchSize * 16 * 8 * 1);
-  
+  const inputBuffer = new Float32Array(batchSize * 128); // 16x8 = 128 pixels per patch
+
   let bufferOffset = 0;
+  const targetW4 = targetW * 4; // Pre-calculate row stride width
+
   for (let r = 0; r < rows; r++) {
+    const rOffset = r * 16;
     for (let c = 0; c < cols; c++) {
-      // Extract a 16x8 block
+      const cOffset = c * 8;
+
+      // Flattened block extractor
       for (let py = 0; py < 16; py++) {
-        const y = r * 16 + py;
-        const rowOffset = y * targetW;
+        const pixelRowIndex = (rOffset + py) * targetW4 + cOffset * 4;
         for (let px = 0; px < 8; px++) {
-          const x = c * 8 + px;
-          const pixelIndex = (rowOffset + x) * 4;
-          
-          // Compute grayscale value (Standard Luma coefficients)
-          const red = imgData[pixelIndex];
-          const green = imgData[pixelIndex + 1];
-          const blue = imgData[pixelIndex + 2];
-          const gray = (0.299 * red + 0.587 * green + 0.114 * blue) / 255.0;
-          
-          inputBuffer[bufferOffset++] = gray;
+          const idx = pixelRowIndex + px * 4;
+
+          // Fast luma conversion without excess float overhead
+          inputBuffer[bufferOffset++] = (0.299 * imgData[idx] + 0.587 * imgData[idx + 1] + 0.114 * imgData[idx + 2]) / 255.0;
         }
       }
     }
   }
-  
+
   const preprocessTime = performance.now() - startPreprocess;
-  
+
   // B. INFERENCE
   const startInference = performance.now();
   let asciiStr = '';
-  
+
   try {
     // Construct ONNX Tensor
     const inputName = ortSession.inputNames[0];
     const outputName = ortSession.outputNames[0];
     const inputTensor = new ort.Tensor('float32', inputBuffer, [batchSize, 16, 8, 1]);
-    
+
     // Run Inference
     const outputMap = await ortSession.run({ [inputName]: inputTensor });
     const outputTensor = outputMap[outputName];
     const outputData = outputTensor.data; // Float32Array of size batchSize * 20
-    
+
     const inferenceTime = performance.now() - startInference;
-    
+
     // C. ARGMAX & TEXT MAPPING
     const numClasses = 20; // from output dimension
     const asciiRows = [];
-    
+
     for (let r = 0; r < rows; r++) {
       let rowStr = '';
       for (let c = 0; c < cols; c++) {
         const patchIdx = r * cols + c;
         const startIdx = patchIdx * numClasses;
-        
+
         let maxVal = -Infinity;
         let maxIdx = 0;
         for (let i = 0; i < numClasses; i++) {
@@ -249,17 +309,17 @@ async function processFrame() {
       asciiRows.push(rowStr);
     }
     asciiStr = asciiRows.join('\n');
-    
+
     // Render ASCII output
     asciiOutput.textContent = asciiStr;
-    
+
     // Update Metrics
     const totalTime = performance.now() - startTotal;
-    
+
     preprocessTimeVal.textContent = `${preprocessTime.toFixed(1)} ms`;
     inferenceTimeVal.textContent = `${inferenceTime.toFixed(1)} ms`;
     totalTimeVal.textContent = `${totalTime.toFixed(1)} ms`;
-    
+
     // FPS counter calculation
     frameCount++;
     const now = performance.now();
@@ -270,7 +330,7 @@ async function processFrame() {
       frameCount = 0;
       fpsIntervalStart = now;
     }
-    
+
   } catch (err) {
     console.error('❌ Inference error:', err);
     asciiOutput.textContent = `[Inference Error: ${err.message}]`;
@@ -278,7 +338,7 @@ async function processFrame() {
     updateStatus('error', `Inference failed: ${err.message}`);
     return;
   }
-  
+
   // Queue next frame
   if (isStreaming) {
     animationFrameId = requestAnimationFrame(processFrame);
@@ -289,7 +349,7 @@ async function processFrame() {
 function updateStatus(state, msg) {
   statusText.textContent = msg;
   statusDot.className = 'status-dot';
-  
+
   if (state === 'loading') {
     statusDot.classList.add('pulse');
     statusDot.style.backgroundColor = '#ffcc00'; // Amber
@@ -305,8 +365,8 @@ function updateStatus(state, msg) {
 function updateCharRamp() {
   const isInverted = invertCheckbox.checked;
   // If inverted, reverse the list so light is mapped to dense and vice versa
-  asciiChars = isInverted 
-    ? [...asciiCharsDefault].reverse() 
+  asciiChars = isInverted
+    ? [...asciiCharsDefault].reverse()
     : [...asciiCharsDefault];
 }
 
@@ -317,6 +377,10 @@ function updateZoom(size) {
 // 5. Event Listeners
 colsSelect.addEventListener('input', (e) => {
   colsVal.textContent = e.target.value;
+});
+
+backendSelect.addEventListener('change', async (e) => {
+  await loadModel(e.target.value);
 });
 
 themeSelect.addEventListener('change', (e) => {
@@ -360,7 +424,7 @@ playPauseBtn.addEventListener('click', () => {
 copyBtn.addEventListener('click', async () => {
   const text = asciiOutput.textContent;
   if (!text || text.startsWith('Loading') || text.startsWith('[Inference')) return;
-  
+
   try {
     await navigator.clipboard.writeText(text);
     const originalText = copyBtn.innerHTML;
