@@ -1,0 +1,82 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    color-scheme: dark light;
+}
+
+body {
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+input, button, textarea, select {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: none;
+}
+
+button {
+    cursor: pointer;
+}
+
+ol, ul {
+    list-style: none;
+}
+
+:root {
+  /* Surface Colors */
+  --surface: #121314;
+  --surface-dim: #121314;
+  --surface-bright: #39393a;
+  --surface-container-lowest: #0d0e0f;
+  --surface-container-low: #1b1c1d;
+  --surface-container: #1f2021;
+  --surface-container-high: #2a2b2c;
+  --surface-container-highest: #353637;
+
+  /* Brand Colors (Ectoplasm) */
+  --primary: #a3d8d4;
+  --on-primary: #003735;
+  --primary-container: #1f4e4b;
+  --on-primary-container: #beeeea;
+
+  /* Secondary Colors */
+  --secondary: #b1ccc9;
+  --on-secondary: #1c3533;
+  --secondary-container: #334b49;
+  --on-secondary-container: #cde8e5;
+
+  /* Tertiary Colors */
+  --tertiary: #afc9e2;
+  --on-tertiary: #183246;
+  --tertiary-container: #30495e;
+  --on-tertiary-container: #cfe5ff;
+
+  /* Neutrals & Outlines */
+  --on-surface: #e1e3e2;
+  --on-surface-variant: #bfc9c7;
+  --outline: #899391;
+  --outline-variant: #3f4947;
+
+  /* Typography (Space Grotesk) */
+  --font-family: 'Space Grotesk', sans-serif;
+  
+  /* Layout & Spacing */
+  --roundness: 4px;
+}
