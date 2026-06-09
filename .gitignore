@@ -31,3 +31,6 @@ tests/
 # Node.js
 node_modules/
 **/node_modules/
+
+# Lock files
+uv.lock
