@@ -8,7 +8,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>My Svelte Page</title>
+	<title>&lt;GhostChar /&gt;</title>
 </svelte:head>
 
 <div class="app-container">

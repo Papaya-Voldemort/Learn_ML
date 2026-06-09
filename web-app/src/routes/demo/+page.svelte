@@ -584,7 +584,7 @@
 </script>
 
 <svelte:head>
-	<title>GhostChar | Live ASCII Translation</title>
+	<title>&lt;GhostChar /&gt; // Live ASCII</title>
 	<meta name="description" content="Neural-powered live webcam translating into high-fidelity ASCII artwork in real time." />
 </svelte:head>
 

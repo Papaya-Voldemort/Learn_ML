@@ -19,6 +19,7 @@ target/
 dataset/
 images/
 instances_val2017.json
+uv.lock
 
 # macOS system files
 .DS_Store
@@ -26,3 +27,7 @@ instances_val2017.json
 # Learning & Tests directories
 learning/
 tests/
+
+# Node.js
+node_modules/
+**/node_modules/
